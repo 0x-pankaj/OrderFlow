@@ -1,0 +1,16 @@
+{
+  "name": "price-poller",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@pythnetwork/hermes-client": "^2.1.0",
+    "@pythnetwork/pyth-solana-receiver": "^0.13.0",
+    "@switchboard-xyz/on-demand": "^3.7.3"
+  }
+}

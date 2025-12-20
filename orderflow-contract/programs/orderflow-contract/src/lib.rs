@@ -368,6 +368,7 @@ pub struct InitializeOrder<'info> {
         bump,    
     )]
     pub order: Account<'info, Order>,
+    #[account(mut)]
     pub input_mint_reserve: InterfaceAccount<'info, TokenAccount>,
     #[account(mut)]
     pub maker_input_mint_account: InterfaceAccount<'info, TokenAccount>,
