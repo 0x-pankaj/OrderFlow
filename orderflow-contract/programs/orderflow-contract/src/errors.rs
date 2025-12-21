@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
 
-
-
 #[error_code]
-pub  enum OrderFlowError {
+pub enum OrderFlowError {
     #[msg("The order has already expired.")]
     OrderExpired,
     #[msg("Making amount cannot be zero.")]
@@ -19,5 +17,9 @@ pub  enum OrderFlowError {
     #[msg("Slippage too high")]
     SlippageTooHigh,
     #[msg("Unauthorized")]
-    Unauthorized
+    Unauthorized,
+    #[msg("Invalid mint")]
+    InvalidMint,
+    #[msg("Invalid Jupiter program")]
+    InvalidJupiterProgram,
 }

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{token_interface::{self as token_interface,  Mint, TokenInterface, TokenAccount }};
-use crate::states::{Order, OrderStatus};
+use crate::{errors::OrderFlowError, states::{Order, OrderStatus}};
 use crate::events::{OrderFilled, OrderCreated, OrderCancelled, CancelledBy};
 
 
@@ -132,7 +132,7 @@ pub mod orderflow_contract {
         
 
         let making_amount_filled = input_reserve_before.checked_sub( input_reserve_after).ok_or(OrderFlowError::MathOverflow)?;
-        let taking_amount_filled = maker_output_before.checked_sub(maker_output_after).ok_or(OrderFlowError::MathOverflow)?;
+        let taking_amount_filled = maker_output_after.checked_sub(maker_output_before).ok_or(OrderFlowError::MathOverflow)?;
 
         require!(making_amount_filled > 0, OrderFlowError::NoSwapOccurred);
         require!(taking_amount_filled > 0, OrderFlowError::NoSwapOccurred);
@@ -253,12 +253,6 @@ pub mod orderflow_contract {
 
 }
 
-
-
-
-
-
-
 #[derive(Accounts)]
 pub struct CancelOrder<'info> {
     pub signer: Signer<'info>,
@@ -303,7 +297,10 @@ pub struct CancelOrder<'info> {
 #[derive(Accounts)]
 pub struct FillOrder<'info> {
     //only backend can fill order
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = backend.key() == BACKEND_AUTHORITY_PUBKEY @ errors::OrderFlowError::Unauthorized
+    )]
     pub backend: Signer<'info>,
     ///CHECK: maker account
     #[account(mut)]
@@ -323,6 +320,7 @@ pub struct FillOrder<'info> {
     )]
     pub input_mint_reserve: InterfaceAccount<'info, TokenAccount>,
 
+    #[account(constraint = output_mint.key() == order.output_mint @ errors::OrderFlowError::InvalidMint)]
     pub output_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
@@ -339,7 +337,8 @@ pub struct FillOrder<'info> {
     pub input_token_program: Interface<'info, TokenInterface>,
     pub output_token_program: Interface<'info, TokenInterface>,
 
-    ///CHECK: Jupiter program account
+    /// CHECK: Jupiter program verified by constraint
+    #[account(constraint = jupiter_program.key() == JUPITER_PROGRAM_ID @ errors::OrderFlowError::InvalidJupiterProgram)]
     pub jupiter_program: UncheckedAccount<'info>,
 
     pub associated_token_program: Program<'info, anchor_spl::associated_token::AssociatedToken>,
@@ -368,7 +367,14 @@ pub struct InitializeOrder<'info> {
         bump,    
     )]
     pub order: Account<'info, Order>,
-    #[account(mut)]
+    #[account(
+        init_if_needed,
+        payer = payer,
+        associated_token::mint = input_mint,
+        associated_token::authority = order,
+        associated_token::token_program = input_token_program
+        
+    )]
     pub input_mint_reserve: InterfaceAccount<'info, TokenAccount>,
     #[account(mut)]
     pub maker_input_mint_account: InterfaceAccount<'info, TokenAccount>,
@@ -383,7 +389,3 @@ pub struct InitializeOrder<'info> {
     pub system_program: Program<'info, System>,
     pub associated_token_program: Program<'info, anchor_spl::associated_token::AssociatedToken>,
 }
-
-
-
-
