@@ -1,89 +1,117 @@
-
 import { Program } from "@coral-xyz/anchor";
 import { idl } from "./idl";
-import {  Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import Redis from "ioredis";
 
-
-const RPC_API = "https://api.devnet.solana.com";
-const REDIS_URL = "redis://127.0.0.1:6379";
+const RPC_API = process.env.RPC_URL || "https://api.devnet.solana.com";
+const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const REDIS_STREAM_KEY = "onchain_order";
 const REDIS_CONSUMER_GROUP_ENGINE = "engine_group";
 const REDIS_CONSUMER_GROUP_DATABASE = "database_group";
-const REDIS_CONSUMER_NAME = "event_listner";
 
 const connection = new Connection(RPC_API, "confirmed");
-const program = new Program(idl, {connection});
-
+const program = new Program(idl as any, { connection });
 
 const redis = new Redis(REDIS_URL);
-const redisDuplicate = redis.duplicate();
 
+async function ensureConsumerGroups() {
+    const groups = [REDIS_CONSUMER_GROUP_ENGINE, REDIS_CONSUMER_GROUP_DATABASE];
 
-async function ensureConsumerGroup() {
-    try {
-        await redis.xgroup("CREATE", REDIS_STREAM_KEY, REDIS_CONSUMER_GROUP_ENGINE, "$", "MKSTREAM");
-        await redis.xgroup("CREATE", REDIS_STREAM_KEY, REDIS_CONSUMER_GROUP_DATABASE, "$", "MKSTREAM");
-    } catch (error ) {
-        if(error.message.includes("BUSYGROUP")){
-            console.log("Consumer group already exists");
-        }else {
-            console.error("Failed to ensure consumer group", error);
+    for (const group of groups) {
+        try {
+            await redis.xgroup("CREATE", REDIS_STREAM_KEY, group, "$", "MKSTREAM");
+            console.log(`Created consumer group: ${group}`);
+        } catch (error: any) {
+            if (error.message.includes("BUSYGROUP")) {
+                console.log(`Consumer group ${group} already exists`);
+            } else {
+                console.error(`Failed to create consumer group ${group}:`, error);
+            }
         }
     }
 }
 
-function formateRedisMessage(eventType: string, eventData: any) {
+// Helper to convert PublicKey and BN to serializable format
+function serializeEventData(event: any): any {
+    const serialized: any = {};
+
+    for (const [key, value] of Object.entries(event)) {
+        if (value instanceof PublicKey) {
+            serialized[key] = value.toBase58();
+        } else if (typeof value === "bigint") {
+            serialized[key] = value.toString();
+        } else if (value && typeof value === "object" && "toNumber" in value) {
+            // BN type
+            serialized[key] = value.toString();
+        } else if (value && typeof value === "object") {
+            serialized[key] = serializeEventData(value);
+        } else {
+            serialized[key] = value;
+        }
+    }
+
+    return serialized;
+}
+
+function formatRedisMessage(eventType: string, eventData: any) {
     return {
-        "type": eventType,
-        "data": eventData
+        type: eventType,
+        data: serializeEventData(eventData),
     };
 }
 
+async function startEventListener() {
+    console.log("Starting event listener...");
+    console.log("Program ID:", program.programId.toBase58());
+    console.log("RPC:", RPC_API);
 
+    await ensureConsumerGroups();
 
-async function startEventListner() {
-    console.log("Starting event listner");
+    // Listen for OrderCreated events
+    program.addEventListener("OrderCreated", async (event) => {
+        console.log("\n OrderCreated event received");
+        console.log("  Order Key:", (event as any).orderKey?.toBase58?.() ?? event);
 
-    await ensureConsumerGroup();
-
-    await   program.addEventListener("OrderCreated", async(event) => {
-
-        console.log("OrderCreated", event);
-
-        const payload = formateRedisMessage("OrderCreated", event);
+        const payload = formatRedisMessage("OrderCreated", event);
         await redis.xadd(REDIS_STREAM_KEY, "*", "event", JSON.stringify(payload));
-    })
+        console.log("   Pushed to Redis stream");
+    });
 
-    await program.addEventListener("FillOrder", async(event) => {
-        console.log("FillOrder", event);
-        const payload = formateRedisMessage("FillOrder", event);
+    // Listen for OrderFilled events
+    program.addEventListener("OrderFilled", async (event) => {
+        console.log("\n OrderFilled event received");
+        console.log("  Order Key:", (event as any).orderKey?.toBase58?.() ?? event);
+
+        const payload = formatRedisMessage("OrderFilled", event);
         await redis.xadd(REDIS_STREAM_KEY, "*", "event", JSON.stringify(payload));
-    })
+        console.log("  Pushed to Redis stream");
+    });
 
-    await program.addEventListener("OrderCancelled", async(event) => {
-        console.log("OrderCancelled", event);
-        const payload = formateRedisMessage("OrderCancelled", event);
+    // Listen for OrderCancelled events
+    program.addEventListener("OrderCancelled", async (event) => {
+        console.log("\n OrderCancelled event received");
+        console.log("  Order Key:", (event as any).orderKey?.toBase58?.() ?? event);
+
+        const payload = formatRedisMessage("OrderCancelled", event);
         await redis.xadd(REDIS_STREAM_KEY, "*", "event", JSON.stringify(payload));
-    })
+        console.log("   Pushed to Redis stream");
+    });
 
+    console.log("\n🎧 Event listener active. Waiting for on-chain events...\n");
 }
-
 
 async function runWithReconnect() {
     while (true) {
         try {
-            await startEventListner();
+            await startEventListener();
+            // Keep the process running
+            await new Promise(() => { });
         } catch (error) {
-            console.error(error);
+            console.error("Event listener error:", error);
+            console.log("Reconnecting in 5 seconds...");
             await new Promise((resolve) => setTimeout(resolve, 5000));
         }
     }
 }
 
 runWithReconnect();
-
-
-
-
-

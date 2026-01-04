@@ -1,5 +1,5 @@
 {
-  "name": "db-manager",
+  "name": "api",
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@prisma/client": "6.0.0",
-    "ioredis": "^5.8.2",
     "prisma": "6.0.0"
+  },
+  "scripts": {
+    "start": "bun run index.ts"
   }
 }

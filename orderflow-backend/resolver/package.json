@@ -1,5 +1,5 @@
 {
-  "name": "price-poller",
+  "name": "resolver",
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
@@ -9,9 +9,8 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@pythnetwork/hermes-client": "^2.1.0",
-    "@pythnetwork/pyth-solana-receiver": "^0.13.0",
-    "@switchboard-xyz/on-demand": "^3.7.3",
+    "@coral-xyz/anchor": "^0.32.1",
+    "bs58": "^6.0.0",
     "ioredis": "^5.8.2"
   }
 }
