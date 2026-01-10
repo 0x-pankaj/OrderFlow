@@ -34,7 +34,7 @@ async function ensureStream() {
 }
 
 async function startPricePoller() {
-  console.log("🚀 Starting Price Poller...");
+  console.log("Starting Price Poller...");
   console.log("   Tracking", priceIds.length, "price feeds");
 
   await ensureStream();
@@ -62,7 +62,7 @@ async function startPricePoller() {
           // Calculate the actual price from Pyth format
           const price = parseFloat(priceData.price.price) * Math.pow(10, priceData.price.expo);
 
-          console.log(`💰 ${feedInfo.symbol}: $${price.toFixed(4)}`);
+          console.log(`${feedInfo.symbol}: $${price.toFixed(4)}`);
 
           // Push to Redis stream
           await redis.xadd(
@@ -90,7 +90,7 @@ async function startPricePoller() {
     throw new Error("Pyth connection lost");
   };
 
-  console.log("   ✅ Connected and streaming prices\n");
+  console.log("Connected and streaming prices");
 
   // Keep alive
   await new Promise(() => { });

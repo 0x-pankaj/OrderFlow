@@ -27,6 +27,8 @@ const SUPPORTED_PAIRS: Record<string, { outputMint: string; symbol: string }> = 
     },
 };
 
+/// USDC EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+
 // Current prices cache: priceId -> price
 const prices: Map<string, number> = new Map();
 
@@ -135,10 +137,10 @@ async function checkForMatches(inputMint: string, currentPrice: number) {
     );
 
     if (matchingOrders.length > 0) {
-        console.log(`\n Found ${matchingOrders.length} matching orders!`);
+        console.log(` Found ${matchingOrders.length} matching orders!`);
 
         for (const order of matchingOrders) {
-            console.log(`   Pushing order ${order.orderKey.slice(0, 8)}... to resolver`);
+            console.log(`Pushing order ${order.orderKey.slice(0, 8)}... to resolver`);
 
             // Push to matched orders stream for resolver
             await redis.xadd(
@@ -153,6 +155,8 @@ async function checkForMatches(inputMint: string, currentPrice: number) {
                     makingAmount: order.makingAmount.toString(),
                     takingAmount: order.takingAmount.toString(),
                     currentPrice: currentPrice,
+                    uniqueId: order.uniqueId.toString(),
+                    expiredAt: order.expiredAt,
                 })
             );
 
@@ -180,7 +184,7 @@ async function consumeOrderStream() {
                 "COUNT",
                 10,
                 "BLOCK",
-                1000,
+                1,
                 "STREAMS",
                 ORDER_STREAM_KEY,
                 ">"
@@ -215,13 +219,15 @@ async function consumePriceStream() {
                 ENGINE_CONSUMER_GROUP,
                 ENGINE_CONSUMER_NAME,
                 "COUNT",
-                10,
+                1,
                 "BLOCK",
-                1000,
+                1,
                 "STREAMS",
                 PRICE_STREAM_KEY,
                 ">"
             );
+
+            console.log("poller result: ", results);
 
             if (!results) continue;
 
@@ -249,7 +255,7 @@ async function logStats() {
         await new Promise((resolve) => setTimeout(resolve, 30000));
         const stats = orderbook.getStats();
         console.log(
-            `\n📊 Engine Stats: ${stats.orderCount} orders across ${stats.tokenCount} tokens`
+            `Engine Stats: ${stats.orderCount} orders across ${stats.tokenCount} tokens`
         );
     }
 }

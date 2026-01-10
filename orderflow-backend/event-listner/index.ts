@@ -69,7 +69,7 @@ async function startEventListener() {
 
     // Listen for OrderCreated events
     program.addEventListener("OrderCreated", async (event) => {
-        console.log("\n OrderCreated event received");
+        console.log(" OrderCreated event received");
         console.log("  Order Key:", (event as any).orderKey?.toBase58?.() ?? event);
 
         const payload = formatRedisMessage("OrderCreated", event);
@@ -79,7 +79,7 @@ async function startEventListener() {
 
     // Listen for OrderFilled events
     program.addEventListener("OrderFilled", async (event) => {
-        console.log("\n OrderFilled event received");
+        console.log(" OrderFilled event received");
         console.log("  Order Key:", (event as any).orderKey?.toBase58?.() ?? event);
 
         const payload = formatRedisMessage("OrderFilled", event);
@@ -89,7 +89,7 @@ async function startEventListener() {
 
     // Listen for OrderCancelled events
     program.addEventListener("OrderCancelled", async (event) => {
-        console.log("\n OrderCancelled event received");
+        console.log(" OrderCancelled event received");
         console.log("  Order Key:", (event as any).orderKey?.toBase58?.() ?? event);
 
         const payload = formatRedisMessage("OrderCancelled", event);
@@ -97,14 +97,13 @@ async function startEventListener() {
         console.log("   Pushed to Redis stream");
     });
 
-    console.log("\n🎧 Event listener active. Waiting for on-chain events...\n");
+    console.log("\ Event listener active. Waiting for on-chain events...\n");
 }
 
 async function runWithReconnect() {
     while (true) {
         try {
             await startEventListener();
-            // Keep the process running
             await new Promise(() => { });
         } catch (error) {
             console.error("Event listener error:", error);
